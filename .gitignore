@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Data, weights and outputs are distributed via Releases, not committed.
+data/
+weights/
+checkpoints/
+work/
+*.pth
+*.h5
+*.zip

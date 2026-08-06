@@ -1,0 +1,11 @@
+.git/
+__pycache__/
+*.pyc
+data/
+weights/
+checkpoints/
+work/
+*.pth
+*.h5
+*.zip
+README.md

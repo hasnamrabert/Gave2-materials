@@ -1,0 +1,130 @@
+# =============================================================================
+# GAVE2 - Final pipeline configuration (submission v26, preliminary phase)
+# =============================================================================
+# Every threshold and hyper-parameter used to produce our best-scoring
+# submission is declared here, so that no numeric constant is buried in code.
+#
+# Official preliminary score of this configuration:
+#   Total 7.98544 | Task1 8.28314 | Task2 8.29600 | Task3 7.53700
+#
+# IMPORTANT - how these thresholds were obtained:
+#   Values marked [CV]     were selected by leave-one-fold-out cross-validation
+#                          on the 48 usable training images.
+#   Values marked [DENSITY] were obtained by matching the mean mask density of
+#                          a previously validated reference model (see
+#                          postprocessing/density.py). They are NOT round
+#                          numbers because they are the output of a bisection
+#                          search.
+#   Values marked [SERVER] were selected using the official validation
+#                          leaderboard as the selection signal. This is
+#                          server-side model selection and is a weaker form of
+#                          validation than cross-validation; it is flagged
+#                          explicitly in docs/REVIEW_NOTES.md.
+# =============================================================================
+
+data:
+  # Image geometry of the GAVE2 dataset (all images share this size).
+  image_height: 1024
+  image_width: 1536
+  # Channel convention used by GAVE2 for *prediction* files:
+  #   R = artery, G = vessel (= artery OR vein), B = vein
+  # NOTE: the provided *ground-truth* files use a different convention
+  #   R = artery, G = crossing/unknown, B = vein
+  # Confusing the two silently produces wrong biomarkers. See
+  # docs/REVIEW_NOTES.md, item "GT vs prediction channel convention".
+  prediction_channels: {artery: 0, vessel: 1, vein: 2}
+  groundtruth_channels: {artery: 0, unknown: 1, vein: 2}
+
+training:
+  n_folds: 4
+  iterations: 15984
+  learning_rate: 1.0e-4
+  batch_size: 4
+  base_channels: 64
+  refinement_iterations: 5
+  loss: BCE3Loss
+  # External dataset used to augment the training split only. The validation
+  # split of every fold stays 100% GAVE2, so cross-validation numbers remain
+  # comparable to the GAVE2-only baseline.
+  external_dataset:
+    name: HRF-AV
+    n_images: 45
+    train_only: true
+
+inference:
+  # Test-time augmentation: dihedral group D4 (identity, 3 rotations, and the
+  # mirrored versions of each) = 8 transforms, averaged in probability space.
+  tta: D4
+  tta_n_transforms: 8
+  # Checkpoint ensembling: the 4 fold checkpoints are averaged in probability
+  # space *before* thresholding.
+  ensemble_folds: 4
+
+# -----------------------------------------------------------------------------
+# Task 1 - CFP-only artery/vein segmentation
+# -----------------------------------------------------------------------------
+task1:
+  # Inter-model fusion: P = beta * P_gave2_only + (1 - beta) * P_gave2_plus_hrf
+  # Both terms are 4-fold + TTA ensembles; they differ only in training data.
+  fusion_beta: 0.5                       # [SERVER]
+  threshold_artery: 0.06863              # [DENSITY]
+  threshold_vein: 0.06667                # [DENSITY]
+  reconnect_distance_px: 25              # [CV]
+
+# -----------------------------------------------------------------------------
+# Task 2 - FFA-guided artery/vein segmentation
+# -----------------------------------------------------------------------------
+task2:
+  # Decision-level fusion between the CFP-only model and the CFP+FFA model:
+  #   P = alpha * P_task1_cfp_only + (1 - alpha) * P_cmrrwnet_cfp_ffa
+  # alpha=0.75 keeps a non-trivial (25%) FFA contribution; see
+  # docs/REVIEW_NOTES.md for why alpha=1.0 was deliberately not used.
+  fusion_alpha: 0.75                     # [CV]
+  # A single low threshold is applied to both classes. This value is well below
+  # the cross-validation optimum (~0.085): CV consistently favoured higher
+  # thresholds (better Dice) while the official metric rewards connectivity
+  # more. Confirmed by a monotone 4-point server sweep, see REVIEW_NOTES.md.
+  threshold_artery: 0.04                 # [SERVER]
+  threshold_vein: 0.04                   # [SERVER]
+  reconnect_distance_px: 25              # [CV]
+
+# -----------------------------------------------------------------------------
+# Task 3 - Biomarker quantification
+# -----------------------------------------------------------------------------
+# Each biomarker is computed from the SAME fused probability map, but binarised
+# at its own threshold. Using one global threshold for all biomarkers measurably
+# degrades the score: thresholds that are optimal for topology inflate density
+# and AVR. See docs/METHOD.md, "Per-biomarker threshold decoupling".
+task3:
+  source_fusion_alpha: 0.75
+  thresholds:
+    AVR: 0.03                            # [CV]
+    CRAE: 0.03                           # [CV]  (same mask as AVR)
+    CRVE: 0.03                           # [CV]  (same mask as AVR)
+    artery_density: 0.30                 # [CV]
+    vein_density: 0.3525                 # [DENSITY]
+    artery_fractal_dimension: 0.10       # [CV]
+    vein_fractal_dimension: 0.15         # [SERVER]
+  # Field order required by the challenge submission format. The parser is
+  # position-tolerant but we match the official example byte-for-byte.
+  field_order:
+    - CRAE
+    - CRVE
+    - AVR
+    - artery_density
+    - vein_density
+    - artery_fractal_dimension
+    - vein_fractal_dimension
+  # The official example files use CRLF line endings; we reproduce them.
+  line_ending: "\r\n"
+
+# -----------------------------------------------------------------------------
+# Endpoint reconnection (post-processing, applied to Task1 and Task2)
+# -----------------------------------------------------------------------------
+reconnection:
+  max_angle_deg: 45.0        # directional cone half-angle for candidate search
+  tangent_steps: 8           # skeleton pixels walked to estimate local tangent
+  # Geodesic mode (routing the reconnection through the vessel channel instead
+  # of drawing a straight line) is implemented but DISABLED: it was measured to
+  # be within noise of the straight-line variant (+0.0015 in cross-validation).
+  use_geodesic: false

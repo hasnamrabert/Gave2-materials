@@ -1,0 +1,11 @@
+# Dependencies for the Docker image.
+# torch==2.2.0 and torchvision==0.17.0 are already provided by the base image
+# (pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime) and are therefore NOT repeated
+# here. requirements.txt is the authoritative list for a non-Docker install.
+numpy==1.26.4
+scipy==1.12.0
+scikit-image==0.22.0
+opencv-python-headless==4.8.1.78
+Pillow==10.2.0
+PyYAML==6.0.3
+tqdm==4.67.3
