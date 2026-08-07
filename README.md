@@ -1,4 +1,4 @@
-# GAVE2 — LaTIM submission materials
+# GAVE2 — Submission materials
 
 Code for our submission to the **GAVE2 Challenge** (MICCAI 2026, OMIA Workshop):
 retinal artery/vein segmentation (Tasks 1–2) and biomarker quantification
