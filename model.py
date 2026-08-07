@@ -28,8 +28,7 @@ We reorder explicitly around the refinement sub-network (`_to_av_vessel` /
 channel order (0=artery, 1=vessel, 2=vein).
 
 Every `MODIFICATION` comment in this file marks a line we changed. A
-line-by-line diff against upstream is provided in
-`docs/MODIFICATIONS_VS_BASELINE.md`.
+line-by-line diff against upstream 
 
 KNOWN LIMITATIONS
 -----------------
