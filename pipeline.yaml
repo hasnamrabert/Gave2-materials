@@ -1,11 +1,13 @@
 # =============================================================================
-# GAVE2 - Final pipeline configuration (submission, preliminary phase)
+# GAVE2 - Final pipeline configuration (best submission, preliminary phase)
 # =============================================================================
 # Every threshold and hyper-parameter used to produce our best-scoring
 # submission is declared here, so that no numeric constant is buried in code.
 #
-# Official preliminary score of this configuration:
-#   Total 7.98544 | Task1 8.28314 | Task2 8.29600 | Task3 7.53700
+# Official preliminary score of this configuration (6th / 44 teams):
+#   Total 7.98544 | Task1 8.26139 | Task2 8.29600 | Task3 7.53690
+# These reconcile exactly under the official weighting:
+#   0.2 * 8.26139 + 0.4 * 8.29600 + 0.4 * 7.53690 = 7.98544
 #
 # IMPORTANT - how these thresholds were obtained:
 #   Values marked [CV]     were selected by leave-one-fold-out cross-validation
@@ -20,6 +22,11 @@
 #                          server-side model selection and is a weaker form of
 #                          validation than cross-validation; it is flagged
 #                          explicitly in docs/REVIEW_NOTES.md.
+#   Values marked [CV+SERVER] were proposed by cross-validation and then either
+#                          confirmed or overruled by a direct server A/B.
+#   Values marked [CHOICE] are NOT the measured optimum. They were chosen
+#                          deliberately, for a reason stated inline. There is
+#                          exactly one, and it is the Task 2 fusion weight.
 # =============================================================================
 
 data:
@@ -77,9 +84,15 @@ task1:
 task2:
   # Decision-level fusion between the CFP-only model and the CFP+FFA model:
   #   P = alpha * P_task1_cfp_only + (1 - alpha) * P_cmrrwnet_cfp_ffa
-  # alpha=0.75 keeps a non-trivial (25%) FFA contribution; see
-  # docs/REVIEW_NOTES.md for why alpha=1.0 was deliberately not used.
-  fusion_alpha: 0.75                     # [CV]
+  #
+  # [CHOICE] - not the argmax. The sweep optimum was alpha=1.0 (7.7183 vs 7.7165
+  # at n_paths=100), a gap of 0.0018 against a measured noise band of +/-0.02-0.05,
+  # i.e. statistically indistinguishable. alpha=1.0 weights the FFA branch at
+  # ZERO, making the submission a pure CFP prediction entered for the FFA-guided
+  # task. We deliberately kept a 25% FFA contribution so that the Task 2 result
+  # describes a genuinely multimodal method.
+  # Full reasoning: docs/REVIEW_NOTES.md section 2bis.
+  fusion_alpha: 0.75                     # [CHOICE, not argmax]
   # A single low threshold is applied to both classes. This value is well below
   # the cross-validation optimum (~0.085): CV consistently favoured higher
   # thresholds (better Dice) while the official metric rewards connectivity
@@ -96,15 +109,42 @@ task2:
 # degrades the score: thresholds that are optimal for topology inflate density
 # and AVR. See docs/METHOD.md, "Per-biomarker threshold decoupling".
 task3:
-  source_fusion_alpha: 0.75
+  # IMPORTANT - this block describes the METHOD (one probability field, each
+  # biomarker at its own threshold), which is what `final.py` implements.
+  #
+  # It does NOT describe how the SUBMITTED Task 3 files were produced. Those were
+  # assembled biomarker by biomarker across three earlier submissions, each built
+  # on a different source field, keeping for each biomarker the source that
+  # scored best on the validation leaderboard. The threshold VALUES below are the
+  # ones actually used for each biomarker, but they were not all applied to the
+  # same field:
+  #
+  #   biomarker                  threshold   source field of the submitted value
+  #   -------------------------  ---------   -----------------------------------
+  #   CRAE / CRVE / AVR            0.03      CMRRWNet Task2 output, no fusion (v7)
+  #   artery_density               0.30      alpha=0.50 fusion, single model (v10)
+  #   vein_density                 0.3525    alpha=0.75 fusion, HRF ensemble (v22)
+  #   artery_fractal_dimension     0.10      CMRRWNet Task2 output, no fusion (v7)
+  #   vein_fractal_dimension       0.15      alpha=0.50 fusion, single model (v10)
+  #
+  # Only `vein_density` was computed from the alpha=0.75 field declared below,
+  # and correspondingly it is the only biomarker the clean pipeline reproduces
+  # exactly. Use `replay_task3.py` to regenerate the submitted files.
+  # Full provenance and rationale: docs/REVIEW_NOTES.md section 1.
+  source_fusion_alpha: 0.75              # applies to the METHOD; see note above
   thresholds:
     AVR: 0.03                            # [CV]
     CRAE: 0.03                           # [CV]  (same mask as AVR)
     CRVE: 0.03                           # [CV]  (same mask as AVR)
     artery_density: 0.30                 # [CV]
     vein_density: 0.3525                 # [DENSITY]
-    artery_fractal_dimension: 0.10       # [CV]
-    vein_fractal_dimension: 0.15         # [SERVER]
+    # [CV+SERVER]: cross-validation on newer masks proposed 0.15, but a direct
+    # server A/B showed 0.15 was worse (-0.02), so 0.10 was retained. The final
+    # choice between the two rests on server evidence, not on CV alone.
+    artery_fractal_dimension: 0.10       # [CV+SERVER]
+    # [CV+SERVER]: cross-validation proposed 0.15 over the earlier 0.20, and a
+    # server A/B confirmed it (+0.11). Both signals agree here.
+    vein_fractal_dimension: 0.15         # [CV+SERVER]
   # Field order required by the challenge submission format. The parser is
   # position-tolerant but we match the official example byte-for-byte.
   field_order:
