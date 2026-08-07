@@ -1,5 +1,5 @@
 # =============================================================================
-# GAVE2 - Final pipeline configuration (submission v26, preliminary phase)
+# GAVE2 - Final pipeline configuration (submission, preliminary phase)
 # =============================================================================
 # Every threshold and hyper-parameter used to produce our best-scoring
 # submission is declared here, so that no numeric constant is buried in code.
