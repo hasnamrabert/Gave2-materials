@@ -1,4 +1,4 @@
-# GAVE2 - LaTIM submission
+# GAVE2 -submission
 #
 # Inference image: Tasks 1 and 2 end-to-end from raw images, and Task 3 given
 # precomputed optic-disc masks (shipped in the Release for the validation set).
