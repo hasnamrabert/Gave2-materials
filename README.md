@@ -1,4 +1,4 @@
-# GAVE2 — Submission materials
+# GAVE2 — submission materials
 
 Code for our submission to the **GAVE2 Challenge** (MICCAI 2026, OMIA Workshop):
 retinal artery/vein segmentation (Tasks 1–2) and biomarker quantification
@@ -10,6 +10,25 @@ calibration, decision-level fusion, and endpoint reconnection.
 
 The **model weights, configuration, final predictions and technical report** are
 available in the [Releases](../../releases) section.
+
+**DockerHub:** <https://hub.docker.com/r/hasnamrabet/gave2>
+
+## Results
+
+Preliminary leaderboard: **6th / 44 teams**, total **7.98544**.
+
+| | Total | Task 1 | Task 2 | Task 3 |
+|---|---|---|---|---|
+| Ours | **7.98544** | 8.26139 | 8.29600 | 7.53690 |
+
+Score is `0.2 * Task1 + 0.4 * Task2 + 0.4 * Task3`, each task being
+`10 * mean_over_classes(0.4*DSC + 0.3*(0.3*Sen + 0.3*Spe + 0.4*Acc)
++ 0.3*(0.5*(1-INF) + 0.5*COR))`.
+
+> The official metric samples 100 random paths per image without a fixed seed.
+> We measured its variance four times by resubmitting byte-identical files: the
+> reported score moves by **±0.02–0.05**. Differences below that band are not
+> interpretable.
 
 ## Requirements
 
@@ -39,10 +58,15 @@ pip install -r requirements.txt
 ## Docker
 
 ```bash
-docker build -t latim/gave2:1.0.0 .
+# Pull the pre-built image
+docker pull hasnamrabet/gave2:1.0.0
+
 docker run --gpus all \
     -v $PWD/data:/data -v $PWD/weights:/weights -v $PWD/work:/work \
-    latim/gave2:1.0.0 bash run_pipeline.sh /data /weights /work
+    hasnamrabet/gave2:1.0.0 bash run_pipeline.sh /data /weights /work
+
+# Or build it locally
+docker build -t hasnamrabet/gave2:1.0.0 .
 ```
 
 Optic-disc segmentation is **not** in this image: it requires TensorFlow 2.13,
@@ -97,11 +121,22 @@ produced identically by both routes.
 The original RRWNet uses `R = artery, G = vein, B = vessel`, whereas GAVE2 uses
 `R = artery, G = vessel, B = vein`. The GAVE2 baseline migrated its loss
 function to the new order but not its model code, which continued to anchor
-channel index 2 — "vessel" upstream, but "vein" under GAVE2. The evidence is a
-self-contradiction inside the baseline's own `losses.py`, whose docstring states
-the upstream order while its body implements the GAVE2 one.
+channel index 2 — "vessel" upstream, but "vein" under GAVE2.
 
-Correcting this is the first of our two bug fixes; see the technical report.
+The two halves of the defect sit in different files of the official baseline,
+and both are checkable:
+
+- **`train/losses.py`** — `BCE3Loss` contradicts itself. Its docstring states the
+  upstream order (`artery: 0, vein: 1, vessel_tree: 2`) while its body reads
+  `pred_v = pred[:, 2]` and `pred_vt = pred[:, 1]`, i.e. the GAVE2 order. The
+  body was migrated; the docstring was not.
+- **`model.py`** and **`train/models.py`** — the anchor was never migrated at
+  all. Both still take `pred_1[:, 2:3]` as the fixed topological anchor, which
+  is the vein channel under the GAVE2 order.
+
+So the recursive refinement, the mechanism that carries topological quality, was
+holding the wrong channel fixed. Correcting it is the first of our two bug
+fixes; see the technical report.
 
 ## Citation
 
@@ -127,6 +162,36 @@ Correcting this is the first of our two bug fixes; see the technical report.
   pages   = {101636},
   year    = {2019}
 }
+
+@article{budai2013robust,
+  title   = {Robust Vessel Segmentation in Fundus Images},
+  author  = {Budai, Attila and Bock, R{\"u}diger and Maier, Andreas and
+             Hornegger, Joachim and Michelson, Georg},
+  journal = {International Journal of Biomedical Imaging},
+  volume  = {2013},
+  pages   = {154860},
+  year    = {2013}
+}
+
+@article{fu2018joint,
+  title   = {Joint Optic Disc and Cup Segmentation Based on Multi-Label Deep
+             Network and Polar Transformation},
+  author  = {Fu, Huazhu and Cheng, Jun and Xu, Yanwu and Wong, Damon Wing Kee
+             and Liu, Jiang and Cao, Xiaochun},
+  journal = {IEEE Transactions on Medical Imaging},
+  volume  = {37},
+  number  = {7},
+  pages   = {1597--1605},
+  year    = {2018}
+}
 ```
+
+**What each is used for.** Morano et al. is the RRWNet architecture the GAVE2
+baseline derives from. Hemelings et al. released the artery/vein annotations for
+HRF that we added to our training split (obtained from
+<https://github.com/rubenhx/av-segmentation>, which requests this citation);
+Budai et al. is the underlying HRF image database. Fu et al. is MNet_DeepCDR,
+whose released disc detector we ported to produce the optic-disc masks required
+by the Task 3 measurements.
 
 Official GAVE2 baseline: <https://github.com/Peng2004/CMRRWNet>
