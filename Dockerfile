@@ -25,7 +25,7 @@
 
 FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 
-LABEL org.opencontainers.image.title="GAVE2 - LaTIM submission"
+LABEL org.opencontainers.image.title="GAVE2 - submission"
 LABEL org.opencontainers.image.description="Retinal artery/vein segmentation and biomarker quantification"
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.licenses="MIT"
