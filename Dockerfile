@@ -1,4 +1,4 @@
-# GAVE2 -submission
+# GAVE2 - submission
 #
 # Inference image: Tasks 1 and 2 end-to-end from raw images, and Task 3 given
 # precomputed optic-disc masks (shipped in the Release for the validation set).
@@ -7,17 +7,20 @@
 # which does not coexist cleanly with PyTorch 2.2 (CUDA runtime conflict). The
 # script is provided separately; see README.md.
 #
+# Available on DockerHub:
+#   docker pull hasnamrabet/gave2:1.0.0
+#
 # Build:
-#   docker build -t latim/gave2:1.0.0 .
+#   docker build -t hasnamrabet/gave2:1.0.0 .
 #
 # Run (GPU):
 #   docker run --gpus all -v $PWD/data:/data -v $PWD/weights:/weights \
-#              -v $PWD/work:/work latim/gave2:1.0.0 \
+#              -v $PWD/work:/work hasnamrabet/gave2:1.0.0 \
 #              bash run_pipeline.sh /data /weights /work
 #
 # Run (CPU only - works, but roughly 20x slower):
 #   docker run -v $PWD/data:/data -v $PWD/weights:/weights \
-#              -v $PWD/work:/work latim/gave2:1.0.0 \
+#              -v $PWD/work:/work hasnamrabet/gave2:1.0.0 \
 #              bash run_pipeline.sh /data /weights /work
 
 FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
@@ -26,6 +29,7 @@ LABEL org.opencontainers.image.title="GAVE2 - LaTIM submission"
 LABEL org.opencontainers.image.description="Retinal artery/vein segmentation and biomarker quantification"
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.source="https://github.com/hasnamrabert/Gave2-materials"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -58,4 +62,4 @@ import model, preprocessing, transformations, postprocessing, biomarkers, infer,
 m1 = model.build_model('task1'); m2 = model.build_model('task2'); \
 print('smoke test OK:', type(m1).__name__, type(m2).__name__)"
 
-CMD ["python", "-c", "print('GAVE2 LaTIM image. See README.md; entry point: run_pipeline.sh')"]
+CMD ["python", "-c", "print('GAVE2 submission image. See README.md; entry point: run_pipeline.sh')"]
