@@ -74,23 +74,20 @@ Release assets are flat (GitHub Releases don't support folders). Download the
 12 `.pth` files and the two `.tar.gz` archives from
 [Releases](../../releases/tag/v1.0), then arrange them as:
 
-\`\`\`
-weights/
+- `weights/task1_gave2/fold0.pth` ← `task1_gave2_fold0.pth`
+- `weights/task1_gave2/fold1.pth` ← `task1_gave2_fold1.pth`
+- `weights/task1_gave2/fold2.pth` ← `task1_gave2_fold2.pth`
+- `weights/task1_gave2/fold3.pth` ← `task1_gave2_fold3.pth`
+- `weights/task1_hrf/fold0.pth` ← `task1_hrf_fold0.pth`
+- `weights/task1_hrf/fold1.pth` ← `task1_hrf_fold1.pth`
+- `weights/task1_hrf/fold2.pth` ← `task1_hrf_fold2.pth`
+- `weights/task1_hrf/fold3.pth` ← `task1_hrf_fold3.pth`
+- `weights/task2/fold0.pth` ← `task2_fold0.pth`
+- `weights/task2/fold1.pth` ← `task2_fold1.pth`
+- `weights/task2/fold2.pth` ← `task2_fold2.pth`
+- `weights/task2/fold3.pth` ← `task2_fold3.pth`
 
-├── task1_gave2/
-│   ├── fold0.pth   ← task1_gave2_fold0.pth
-│   ├── fold1.pth   ← task1_gave2_fold1.pth
-│   ├── fold2.pth   ← task1_gave2_fold2.pth
-│   └── fold3.pth   ← task1_gave2_fold3.pth
-├── task1_hrf/
-│   └── fold{0-3}.pth   ← task1_hrf_fold{0-3}.pth
-└── task2/
-    └── fold{0-3}.pth   ← task2_fold{0-3}.pth
-\`\`\`
-
-Extract `optic_disc_masks.tar.gz` (→ `optic_disc_masks/`) and
-`task3_archive.tar.gz` (→ `archive/task3/`) directly — they already unpack to
-the layout `run_pipeline.sh` and `replay_task3.py` expect.
+Extract `optic_disc_masks.tar.gz` (→ `optic_disc_masks/`) and `task3_archive.tar.gz` (→ `archive/task3/`) directly — they already unpack to the layout `run_pipeline.sh` and `replay_task3.py` expect.
 
 
 Optic-disc segmentation is **not** in this image: it requires TensorFlow 2.13,
