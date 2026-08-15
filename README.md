@@ -70,7 +70,7 @@ docker build -t hasnamrabet/gave2:1.0.0 .
 ```
 ### Setting up `weights/` from the Release
 
-Release assets are flat (GitHub Releases don't support folders). Download the
+Release assets are flat. Download the
 12 `.pth` files and the two `.tar.gz` archives from
 [Releases](../../releases/tag/v1.0), then arrange them as:
 
