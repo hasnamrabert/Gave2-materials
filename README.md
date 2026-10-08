@@ -1,5 +1,7 @@
 # GAVE2 — submission materials
 
+**Authors:** Hasna MRABENT, Mostafa EL HABIB DAHO — LaTIM UMR1101 INSERM, University of Western Brittany, Brest, France.
+
 Code for our submission to the **GAVE2 Challenge** (MICCAI 2026, OMIA Workshop):
 retinal artery/vein segmentation (Tasks 1–2) and biomarker quantification
 (Task 3).
@@ -15,15 +17,30 @@ available in the [Releases](../../releases) section.
 
 ## Results
 
+Final leaderboard: **2nd / 44 teams**, total **8.04062**.
+
+| | Total | Task 1 | Task 2 | Task 3 |
+|---|---|---|---|---|
+| Ours | **8.04062** | 8.39456 | 8.44125 | 7.46302 |
+| Rank | **2nd** / 44 | 3rd | 2nd | **1st** |
+
 Preliminary leaderboard: **6th / 44 teams**, total **7.98544**.
 
 | | Total | Task 1 | Task 2 | Task 3 |
 |---|---|---|---|---|
 | Ours | **7.98544** | 8.26139 | 8.29600 | 7.53690 |
 
-Score is `0.2 * Task1 + 0.4 * Task2 + 0.4 * Task3`, each task being
-`10 * mean_over_classes(0.4*DSC + 0.3*(0.3*Sen + 0.3*Spe + 0.4*Acc)
-+ 0.3*(0.5*(1-INF) + 0.5*COR))`.
+Score:
+
+```
+Total = 0.2 * Task1 + 0.4 * Task2 + 0.4 * Task3
+
+Task_i = 10 * mean_over_classes(
+    0.4 * DSC
+  + 0.3 * (0.3*Sen + 0.3*Spe + 0.4*Acc)
+  + 0.3 * (0.5*(1 - INF) + 0.5*COR)
+)
+```
 
 > The official metric samples 100 random paths per image without a fixed seed.
 > We measured its variance four times by resubmitting byte-identical files: the
@@ -50,10 +67,11 @@ pip install -r requirements.txt
 | `biomarkers.py` | Task 3 measurements and per-biomarker threshold assembly |
 | `infer.py` | checkpoint ensemble + TTA inference |
 | `final.py` | end-to-end submission assembly, verification and packaging |
-| `replay_task3.py` | reconstructs the exact Task 3 files of the scored submission |
+| `replay_task3.py` | reconstructs the exact Task 3 files of the scored preliminary submission |
 | `pipeline.yaml` | every threshold and fusion weight used |
 | `Dockerfile` | inference image (Tasks 1–2 end-to-end; Task 3 given disc masks) |
 | `run_pipeline.sh` | one-command end-to-end run inside the container |
+| `scripts/02_segment_optic_disc.py` | optic-disc segmentation (TensorFlow 2.13, separate environment — see below) |
 
 ## Docker
 
@@ -89,12 +107,49 @@ Release assets are flat. Download the
 
 Extract `optic_disc_masks.tar.gz` (→ `optic_disc_masks/`) and `task3_archive.tar.gz` (→ `archive/task3/`) directly — they already unpack to the layout `run_pipeline.sh` and `replay_task3.py` expect.
 
+[Release v1.1](../../releases/tag/v1.1) additionally provides
+`optic_disc_masks_final.tar.gz`, the disc masks for the 100-image final set
+(also → `optic_disc_masks/`, superseding the 50-image v1.0 archive for that
+folder), and `submission_final.zip`, the submission sent for the final round.
 
 Optic-disc segmentation is **not** in this image: it requires TensorFlow 2.13,
 which does not coexist cleanly with PyTorch 2.2. Precomputed disc masks for the
-validation set are included in the Release, so Task 3 runs from the container as
-long as they are mounted; the TensorFlow script is provided separately for use
-on other data.
+validation and final sets are included in the Release, so Task 3 runs from the
+container as long as they are mounted; `scripts/02_segment_optic_disc.py` is
+included in this repo for running on other data — see below.
+
+### Optic-disc segmentation (separate environment)
+
+`scripts/02_segment_optic_disc.py` produces the disc masks Task 3 needs. It
+ports the disc detector from
+[MNet_DeepCDR](https://github.com/HzFu/MNet_DeepCDR) (Fu et al., see
+Citation) into `tf.keras`, preserving the original layer names so the
+authors' released `Model_DiscSeg_ORIGA.h5` weights load directly. It needs
+TensorFlow, which does not coexist cleanly with the PyTorch environment used
+by everything else in this repo, so it runs in its own environment:
+
+```bash
+conda create -n gave2-od python=3.10
+conda activate gave2-od
+pip install tensorflow==2.13.1 scikit-image numpy
+
+python scripts/02_segment_optic_disc.py \
+    --images data/validation/images \
+    --weights external/MNet_DeepCDR/deep_model/Model_DiscSeg_ORIGA.h5 \
+    --out work/optic_disc
+```
+
+The weights file is not redistributed here; download it from the
+MNet_DeepCDR repository linked above. Output is one binary PNG (0/255) per
+input image at the original resolution, ready to pass as `--disc-dir`.
+
+> The masks used for our submitted results are provided in the Release
+> (`optic_disc_masks.tar.gz` for the 50 validation images,
+> `optic_disc_masks_final.tar.gz` for the 100 final images). When we re-ran
+> this script in a fresh environment as a cross-check, the masks differed
+> substantially from them (mean IoU 0.12 on the validation images; cause not
+> investigated, possibly environment-dependent). For exact reproduction of
+> our results, please use the released masks.
 
 ## Inference
 
@@ -116,18 +171,23 @@ python final.py --prob-task1-gave2 work/p_t1_gave2 --prob-task1-hrf work/p_t1_hr
     --out work/submission --zip work/submission.zip
 ```
 
-Optic-disc masks (needed by Task 3) are produced by a separate TensorFlow-based
-step; precomputed masks for the validation set are included in the Release.
+Optic-disc masks (needed by Task 3) are produced by `scripts/02_segment_optic_disc.py`
+(separate TensorFlow environment, see above); precomputed masks for the
+validation and final sets are included in the Release.
 
-## Reproducing the scored submission exactly
+## Reproducing the submissions
 
-`final.py` implements the method as described in the technical report: every
-Task 3 biomarker computed from one probability field, each at its own threshold.
+**Final round (100 images).** The final submission was produced end-to-end by
+`final.py` (see Inference above, or `run_pipeline.sh` in the container). It is
+provided in Release v1.1 as `submission_final.zip`.
 
-The Task 3 files we actually submitted were instead assembled biomarker by
-biomarker across several earlier submissions, keeping for each the source that
-scored best on the validation leaderboard. To reproduce those exact files from
-the archived per-submission outputs (included in the Release):
+**Preliminary round (50 images).** `final.py` implements the method as described
+in the technical report: every Task 3 biomarker computed from one probability
+field, each at its own threshold. The Task 3 files of our scored preliminary
+submission were instead assembled biomarker by biomarker across several earlier
+submissions, keeping for each the source that scored best on the validation
+leaderboard. To reproduce those exact files from the archived per-submission
+outputs (included in Release v1.0):
 
 ```bash
 python replay_task3.py --archive archive/task3 --out work/submission/Task3
@@ -211,8 +271,10 @@ fixes; see the technical report.
 baseline derives from. Hemelings et al. released the artery/vein annotations for
 HRF that we added to our training split (obtained from
 <https://github.com/rubenhx/av-segmentation>, which requests this citation);
-Budai et al. is the underlying HRF image database. Fu et al. is MNet_DeepCDR,
-whose released disc detector we ported to produce the optic-disc masks required
-by the Task 3 measurements.
+Budai et al. is the underlying HRF image database, downloadable at
+<https://www5.cs.fau.de/research/data/fundus-images/>. Fu et al. is
+[MNet_DeepCDR](https://github.com/HzFu/MNet_DeepCDR), whose released disc
+detector we ported (`scripts/02_segment_optic_disc.py`) to produce the
+optic-disc masks required by the Task 3 measurements.
 
 Official GAVE2 baseline: <https://github.com/Peng2004/CMRRWNet>
